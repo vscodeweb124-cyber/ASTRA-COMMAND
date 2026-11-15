@@ -54,7 +54,7 @@ Set `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`, `MYSQL_PASSWORD`, and `MYSQL_DATAB
 npm start
 ```
 
-The server checks the MySQL connection during startup and creates its tables if needed. If MySQL is configured but unreachable, startup reports the error rather than silently switching to demo mode. Omit `MYSQL_DATABASE` to explicitly use demo mode.
+The server checks the MySQL connection during startup and creates its tables if needed. If MySQL is configured but unavailable, it logs the initialization error and continues in demo mode. Omit `MYSQL_DATABASE` to explicitly use demo mode.
 
 For development with automatic server restarts:
 
@@ -64,11 +64,11 @@ npm run dev
 
 ## Deploy to Vercel
 
-Import this project into Vercel with the repository root as the project root. The included `vercel.json` serves the frontend from `public` and rewrites `/api/...` requests to the Express serverless function in `api/index.js`. No separate frontend API URL is needed.
+Import this project into Vercel with the repository root as the project root. The included `vercel.json` serves the frontend from `public` and rewrites `/api/...` requests to the Express serverless function in `api/index.js`. The rewrite passes the matched path as a query parameter, which the handler restores before Express routes the request. No separate frontend API URL is needed.
 
 Add `NASA_API_KEY` as a server-side Vercel environment variable if live NASA data is wanted. Never add it to frontend code or a `NEXT_PUBLIC_`/client-exposed variable.
 
-MySQL is optional. Only set `MYSQL_DATABASE` and the related `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`, and `MYSQL_PASSWORD` variables when the database endpoint is externally reachable from Vercel and permits its connections. Vercel cannot connect to a MySQL server bound only to your computer or a private network. Without `MYSQL_DATABASE`, the app uses demo mode; in serverless demo mode, in-memory missions are not durable and may not be shared between function instances. The existing database initialization only creates ASTRA-owned tables when absent; it does not migrate or delete existing records or tables.
+MySQL is optional. Only set `MYSQL_DATABASE` and the related `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`, and `MYSQL_PASSWORD` variables when the database endpoint is externally reachable from Vercel and permits its connections. Vercel cannot connect to a MySQL server bound only to your computer or a private network. Without `MYSQL_DATABASE`, or when MySQL cannot be initialized, the app uses demo mode; in serverless demo mode, in-memory missions are not durable and may not be shared between function instances. The existing database initialization only creates ASTRA-owned tables when absent; it does not migrate or delete existing records or tables.
 
 ## API
 
@@ -89,7 +89,7 @@ MySQL is optional. Only set `MYSQL_DATABASE` and the related `MYSQL_HOST`, `MYSQ
 - `POST /api/missions/:id/communications/advance` — advance the simulator clock to receive the next practice reply.
 - `GET /api/missions/history` — recent missions.
 - `GET /api/nasa/apod` — server-proxied NASA Astronomy Picture of the Day.
-- `GET /api/nasa/space-weather` — server-proxied NASA DONKI coronal mass ejections.
+- `GET /api/nasa/space-weather` and `GET /api/nasa/donki` — server-proxied NASA DONKI coronal mass ejections.
 
 ## Testing
 

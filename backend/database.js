@@ -2,14 +2,19 @@ const mysql = require('mysql2/promise');
 
 let pool;
 
-function isDatabaseEnabled() {
+function isDatabaseConfigured() {
   return Boolean(process.env.MYSQL_DATABASE);
 }
 
-async function initializeDatabase() {
-  if (!isDatabaseEnabled()) return;
+function isDatabaseEnabled() {
+  return Boolean(pool);
+}
 
-  pool = mysql.createPool({
+async function initializeDatabase() {
+  pool = null;
+  if (!isDatabaseConfigured()) return;
+
+  const candidatePool = mysql.createPool({
     host: process.env.MYSQL_HOST || 'localhost',
     port: Number(process.env.MYSQL_PORT) || 3306,
     user: process.env.MYSQL_USER || 'root',
@@ -20,29 +25,43 @@ async function initializeDatabase() {
     charset: 'utf8mb4'
   });
 
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS astra_command_missions (
-      id CHAR(36) PRIMARY KEY,
-      destination VARCHAR(12) NOT NULL,
-      player_name VARCHAR(32) NOT NULL,
-      state_json JSON NOT NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      INDEX mission_history (created_at)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-  `);
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS astra_command_mission_decisions (
-      id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-      mission_id CHAR(36) NOT NULL,
-      scenario_id VARCHAR(40) NOT NULL,
-      choice_id VARCHAR(40) NOT NULL,
-      explanation VARCHAR(500) NOT NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      INDEX decision_history (mission_id),
-      CONSTRAINT fk_astra_decision_mission FOREIGN KEY (mission_id) REFERENCES astra_command_missions(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-  `);
+  try {
+    await candidatePool.query(`
+      CREATE TABLE IF NOT EXISTS astra_command_missions (
+        id CHAR(36) PRIMARY KEY,
+        destination VARCHAR(12) NOT NULL,
+        player_name VARCHAR(32) NOT NULL,
+        state_json JSON NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX mission_history (created_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    await candidatePool.query(`
+      CREATE TABLE IF NOT EXISTS astra_command_mission_decisions (
+        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        mission_id CHAR(36) NOT NULL,
+        scenario_id VARCHAR(40) NOT NULL,
+        choice_id VARCHAR(40) NOT NULL,
+        explanation VARCHAR(500) NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX decision_history (mission_id),
+        CONSTRAINT fk_astra_decision_mission FOREIGN KEY (mission_id) REFERENCES astra_command_missions(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    pool = candidatePool;
+  } catch (error) {
+    console.error(
+      `Could not initialize ASTRA COMMAND database (${error.code || 'unknown error'}); continuing in demo mode.`
+    );
+    try {
+      await candidatePool.end();
+    } catch (closeError) {
+      console.error(
+        `Could not close ASTRA COMMAND database pool (${closeError.code || 'unknown error'}).`
+      );
+    }
+  }
 }
 
 async function getMission(id) {

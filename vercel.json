@@ -3,7 +3,7 @@
   "outputDirectory": "public",
   "rewrites": [
     {
-      "source": "/api/:path*",
+      "source": "/api/:vercelRoute*",
       "destination": "/api"
     }
   ]
